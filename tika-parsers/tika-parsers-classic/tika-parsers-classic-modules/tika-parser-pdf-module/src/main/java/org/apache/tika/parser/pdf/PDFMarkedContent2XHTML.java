@@ -272,6 +272,9 @@ public class PDFMarkedContent2XHTML extends PDF2XHTML {
             for (COSBase k : ((COSArray) kids)) {
                 recurse(k, currentPageRef, depth, paragraphs, roleMap);
             }
+        } else if (kids instanceof COSObject) {
+            recurse(((COSObject)kids).getObject(),
+                    currentPageRef, depth++, paragraphs, roleMap);
         } else if (kids instanceof COSDictionary) {
             COSDictionary kidsDictionary = (COSDictionary)kids;
             COSBase cosType = kidsDictionary.getItem(COSName.TYPE);
