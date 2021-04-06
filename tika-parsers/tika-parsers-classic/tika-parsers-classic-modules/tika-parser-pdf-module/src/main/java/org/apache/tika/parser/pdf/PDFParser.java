@@ -29,6 +29,7 @@ import java.util.Set;
 import javax.xml.stream.XMLStreamException;
 
 import org.apache.commons.io.input.CloseShieldInputStream;
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSArray;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
@@ -42,6 +43,7 @@ import org.apache.pdfbox.pdmodel.encryption.InvalidPasswordException;
 import org.apache.pdfbox.pdmodel.fixup.AbstractFixup;
 import org.apache.pdfbox.pdmodel.fixup.PDDocumentFixup;
 import org.apache.pdfbox.pdmodel.fixup.processor.AcroFormDefaultsProcessor;
+import org.apache.pdfbox.pdmodel.fixup.processor.PDDocumentProcessor;
 import org.apache.pdfbox.pdmodel.interactive.form.PDAcroForm;
 import org.xml.sax.ContentHandler;
 import org.xml.sax.SAXException;
@@ -185,13 +187,13 @@ public class PDFParser extends AbstractParser implements Initializable {
     protected PDDocument getPDDocument(InputStream inputStream, String password,
                                        MemoryUsageSetting memoryUsageSetting, Metadata metadata,
                                        ParseContext parseContext) throws IOException {
-        return PDDocument.load(inputStream, password, memoryUsageSetting);
+        return Loader.loadPDF(inputStream, password, memoryUsageSetting);
     }
 
     protected PDDocument getPDDocument(Path path, String password,
                                        MemoryUsageSetting memoryUsageSetting, Metadata metadata,
                                        ParseContext parseContext) throws IOException {
-        return PDDocument.load(path.toFile(), password, memoryUsageSetting);
+        return Loader.loadPDF(path.toFile(), password, memoryUsageSetting);
     }
 
     private boolean hasMarkedContent(PDDocument pdDocument) {

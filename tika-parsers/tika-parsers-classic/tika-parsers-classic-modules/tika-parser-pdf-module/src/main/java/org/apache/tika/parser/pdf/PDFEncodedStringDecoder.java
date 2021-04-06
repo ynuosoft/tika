@@ -24,8 +24,8 @@ import java.io.IOException;
 import java.io.InputStream;
 
 import org.apache.pdfbox.cos.COSString;
-import org.apache.pdfbox.io.RandomAccessBuffer;
 import org.apache.pdfbox.io.RandomAccessRead;
+import org.apache.pdfbox.io.RandomAccessReadBuffer;
 import org.apache.pdfbox.pdfparser.COSParser;
 
 /**
@@ -83,7 +83,7 @@ class PDFEncodedStringDecoder {
         try {
             byte[] bytes = new String("(" + value + ")").getBytes(ISO_8859_1);
             InputStream is = new ByteArrayInputStream(bytes);
-            COSStringParser p = new COSStringParser(new RandomAccessBuffer(is));
+            COSStringParser p = new COSStringParser(new RandomAccessReadBuffer(is));
             String parsed = p.myParseCOSString();
             if (parsed != null) {
                 return parsed;

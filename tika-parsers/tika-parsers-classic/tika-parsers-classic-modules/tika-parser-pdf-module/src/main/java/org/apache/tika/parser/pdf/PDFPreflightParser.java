@@ -22,6 +22,7 @@ import java.io.InputStream;
 import java.nio.file.Path;
 import java.util.List;
 
+import org.apache.pdfbox.Loader;
 import org.apache.pdfbox.cos.COSBase;
 import org.apache.pdfbox.cos.COSDictionary;
 import org.apache.pdfbox.cos.COSDocument;
@@ -37,6 +38,7 @@ import org.apache.pdfbox.preflight.PreflightContext;
 import org.apache.pdfbox.preflight.PreflightDocument;
 import org.apache.pdfbox.preflight.ValidationResult;
 import org.apache.pdfbox.preflight.exception.SyntaxValidationException;
+import org.apache.pdfbox.preflight.exception.ValidationException;
 import org.apache.pdfbox.preflight.parser.PreflightParser;
 
 import org.apache.tika.io.TikaInputStream;
@@ -62,15 +64,7 @@ public class PDFPreflightParser extends PDFParser {
     protected static COSDictionary getLinearizedDictionary(PDDocument document) {
         // ---- Get Ref to obj
         COSDocument cDoc = document.getDocument();
-        List<?> lObj = cDoc.getObjects();
-        for (Object object : lObj) {
-            COSBase curObj = ((COSObject) object).getObject();
-            if (curObj instanceof COSDictionary && ((COSDictionary) curObj).keySet()
-                    .contains(COSName.getPDFName(PreflightConstants.DICTIONARY_KEY_LINEARIZED))) {
-                return (COSDictionary) curObj;
-            }
-        }
-        return null;
+        return cDoc.getLinearizedDictionary();
     }
 
     @Override
@@ -92,26 +86,37 @@ public class PDFPreflightParser extends PDFParser {
         PreflightConfiguration configuration = new PreflightConfiguration();
         configuration.setMaxErrors(pppConfig.getMaxErrors());
         PreflightParser preflightParser = new PreflightParser(path.toFile());
-
-        preflightParser.setLenient(pppConfig.isLenient);
+        //TODO -- is there an alternative for this in PDFBox 3.x?
+        //preflightParser.setLenient(pppConfig.isLenient);
+        PDDocument pdDocument = null;
         try {
-            preflightParser.parse(pppConfig.getFormat(), configuration);
+            pdDocument = preflightParser.parse(pppConfig.getFormat(), configuration);
         } catch (SyntaxValidationException e) {
             //back off to try to load the file normally
             return handleSyntaxException(path, password, memoryUsageSetting, metadata, e);
         }
 
-        PreflightDocument preflightDocument = preflightParser.getPreflightDocument();
-        preflightDocument.validate();
-        extractPreflight(preflightDocument, metadata);
+        PreflightDocument preflightDocument = new PreflightDocument(
+                pdDocument.getDocument(), Format.PDF_A1B);
+        //TODO -- is this right?
+        PreflightContext preflightContext = new PreflightContext();
+        preflightDocument.setContext(preflightContext);
+        try {
+            extractPreflight(preflightDocument, metadata);
+        } catch (ValidationException e) {
+            e.printStackTrace();
+        }
 
         //need to return this to ensure that it gets closed
         //the preflight document can keep some other resources open.
-        return preflightParser.getPreflightDocument();
+        return preflightDocument;
     }
 
-    private void extractPreflight(PreflightDocument preflightDocument, Metadata metadata) {
-        ValidationResult result = preflightDocument.getResult();
+    private void extractPreflight(PreflightDocument preflightDocument, Metadata metadata)
+            throws ValidationException {
+        //TODO -- getting NPE
+        ValidationResult result = preflightDocument.validate();
+
         metadata.set(PDF.PREFLIGHT_SPECIFICATION, preflightDocument.getSpecification().toString());
         metadata.set(PDF.PREFLIGHT_IS_VALID, Boolean.toString(result.isValid()));
 
@@ -157,7 +162,7 @@ public class PDFPreflightParser extends PDFParser {
                                              Metadata metadata, SyntaxValidationException e)
             throws IOException {
         metadata.add(PDF.PREFLIGHT_PARSE_EXCEPTION, ExceptionUtils.getStackTrace(e));
-        return PDDocument.load(path.toFile(), password, memoryUsageSetting);
+        return Loader.loadPDF(path.toFile(), password, memoryUsageSetting);
     }
 
     private static class PDFPreflightParserConfig {

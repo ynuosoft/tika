@@ -272,25 +272,26 @@ public class PDFMarkedContent2XHTML extends PDF2XHTML {
             for (COSBase k : ((COSArray) kids)) {
                 recurse(k, currentPageRef, depth, paragraphs, roleMap);
             }
-        } else if (kids instanceof COSObject) {
-            COSBase cosType = ((COSObject) kids).getItem(COSName.TYPE);
+        } else if (kids instanceof COSDictionary) {
+            COSDictionary kidsDictionary = (COSDictionary)kids;
+            COSBase cosType = kidsDictionary.getItem(COSName.TYPE);
             if (cosType != null && cosType instanceof COSName) {
                 if ("OBJR".equals(((COSName) cosType).getName())) {
-                    recurse(((COSObject) kids).getDictionaryObject(COSName.OBJ), currentPageRef,
+                    recurse(kidsDictionary.getDictionaryObject(COSName.OBJ), currentPageRef,
                             depth + 1, paragraphs, roleMap);
                 }
             }
 
-            COSBase n = ((COSObject) kids).getItem(COSName.S);
+            COSBase n = kidsDictionary.getItem(COSName.S);
             String name = "";
             if (n instanceof COSName) {
                 name = ((COSName) n).getName();
             }
-            COSBase grandkids = ((COSObject) kids).getItem(COSName.K);
+            COSBase grandkids = kidsDictionary.getItem(COSName.K);
             if (grandkids == null) {
                 return;
             }
-            COSBase pageBase = ((COSObject) kids).getItem(COSName.PG);
+            COSBase pageBase = kidsDictionary.getItem(COSName.PG);
 
             if (pageBase != null && pageBase instanceof COSObject) {
                 currentPageRef = new ObjectRef(((COSObject) pageBase).getObjectNumber(),
