@@ -277,6 +277,17 @@ public class PDFMarkedContent2XHTML extends PDF2XHTML {
                     currentPageRef, depth++, paragraphs, roleMap);
         } else if (kids instanceof COSDictionary) {
             COSDictionary kidsDictionary = (COSDictionary)kids;
+            //short circuit look for anchor/uri
+            if (kidsDictionary.containsKey(COSName.A)) {
+                COSDictionary anchor = kidsDictionary.getCOSDictionary(COSName.A);
+                //check for subtype /Link ?
+                //COSName subtype = obj.getCOSName(COSName.SUBTYPE);
+                if (anchor != null) {
+                    state.uri = anchor.getString(COSName.URI);
+                }
+                return;
+            }
+            //try the other types of dicts
             COSBase cosType = kidsDictionary.getItem(COSName.TYPE);
             if (cosType != null && cosType instanceof COSName) {
                 if ("OBJR".equals(((COSName) cosType).getName())) {
@@ -292,7 +303,13 @@ public class PDFMarkedContent2XHTML extends PDF2XHTML {
             }
             COSBase grandkids = kidsDictionary.getItem(COSName.K);
             if (grandkids == null) {
-                return;
+                //if grandkids object doesn't exist, try straight obj
+                if (kidsDictionary.containsKey(COSName.OBJ)) {
+                    recurse(kidsDictionary.getDictionaryObject(COSName.OBJ), currentPageRef,
+                            depth + 1, paragraphs, roleMap);
+                } else {
+                    return;
+                }
             }
             COSBase pageBase = kidsDictionary.getItem(COSName.PG);
 
@@ -349,24 +366,6 @@ public class PDFMarkedContent2XHTML extends PDF2XHTML {
                 state.processedMCIDs.add(mcid);
             } else {
                 //TODO: log can't find mcid
-            }
-        } else if (kids instanceof COSDictionary) {
-            //TODO: check for other types of dictionary?
-            COSDictionary dict = (COSDictionary) kids;
-            COSDictionary anchor = dict.getCOSDictionary(COSName.A);
-            //check for subtype /Link ?
-            //COSName subtype = obj.getCOSName(COSName.SUBTYPE);
-            if (anchor != null) {
-                state.uri = anchor.getString(COSName.URI);
-            } else {
-                if (dict.containsKey(COSName.K)) {
-                    recurse(dict.getDictionaryObject(COSName.K), currentPageRef, depth + 1,
-                            paragraphs, roleMap);
-                } else if (dict.containsKey(COSName.OBJ)) {
-                    recurse(dict.getDictionaryObject(COSName.OBJ), currentPageRef, depth + 1,
-                            paragraphs, roleMap);
-
-                }
             }
         } else {
             //TODO: handle a different object?
