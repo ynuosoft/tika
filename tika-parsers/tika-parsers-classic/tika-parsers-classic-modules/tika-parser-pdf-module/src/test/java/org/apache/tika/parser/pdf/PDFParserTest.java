@@ -812,9 +812,7 @@ public class PDFParserTest extends TikaTest {
     }
 
     //Access checker tests
-
     @Test()
-    @Ignore("failing in 3.x")
     public void testLegacyAccessChecking() throws Exception {
 
         //test that default behavior doesn't throw AccessPermissionException
@@ -844,7 +842,6 @@ public class PDFParserTest extends TikaTest {
     }
 
     @Test
-    @Ignore("failing in 3.x")
     public void testAccessCheckingEmptyPassword() throws Exception {
         PDFParserConfig config = new PDFParserConfig();
 
@@ -869,7 +866,6 @@ public class PDFParserTest extends TikaTest {
     }
 
     @Test
-    @Ignore("failing in 3.x")
     public void testAccessCheckingUserPassword() throws Exception {
         ParseContext context = new ParseContext();
 
@@ -917,7 +913,6 @@ public class PDFParserTest extends TikaTest {
     }
 
     @Test
-    @Ignore("failing in 3.x")
     public void testAccessCheckingOwnerPassword() throws Exception {
         ParseContext context = new ParseContext();
 
