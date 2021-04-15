@@ -214,6 +214,7 @@
               pdfbox-preflight|
               fontbox|
               jempbox|
+              picocli|
               bcmail-jdk15on|
               bcprov-jdk15on|
               bcpkix-jdk15on|
@@ -298,6 +299,7 @@
               com.sun.msv.datatype;resolution:=optional,
               com.sun.msv.datatype.xsd;resolution:=optional,
               com.sun.tools.javadoc;resolution:=optional,
+              groovy.lang;resolution:=optional,
               javax.annotation;resolution:=optional,
               javax.mail;resolution:=optional,
               javax.mail.internet;resolution:=optional,
@@ -358,6 +360,7 @@
               org.brotli.dec;resolution:=optional,
               org.cyberneko.html.xercesbridge;resolution:=optional,
               org.etsi.uri.x01903.v14;resolution:=optional,
+              org.fusesource.jansi;resolution:=optional,
               org.jaxen;resolution:=optional,
               org.jaxen.dom4j;resolution:=optional,
               org.jaxen.pattern;resolution:=optional,

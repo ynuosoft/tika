@@ -36,7 +36,7 @@ public class TSDParserTest extends TikaTest {
         assertEquals(2, list.size());
         assertEquals("application/pdf", list.get(1).get(Metadata.CONTENT_TYPE));
         assertNotNull(list.get(1).get(TikaCoreProperties.EMBEDDED_EXCEPTION));
-        assertContains("org.apache.pdfbox.pdmodel.PDDocument.load",
+        assertContains("org.apache.pdfbox.Loader.loadPDF",
                 list.get(1).get(TikaCoreProperties.EMBEDDED_EXCEPTION));
     }
 
