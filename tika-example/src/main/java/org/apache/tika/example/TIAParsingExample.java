@@ -32,6 +32,10 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.zip.GZIPInputStream;
 
+import org.xml.sax.ContentHandler;
+import org.xml.sax.SAXException;
+import org.xml.sax.helpers.DefaultHandler;
+
 import org.apache.tika.Tika;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.io.TikaInputStream;
@@ -50,9 +54,6 @@ import org.apache.tika.parser.xml.XMLParser;
 import org.apache.tika.sax.BodyContentHandler;
 import org.apache.tika.sax.LinkContentHandler;
 import org.apache.tika.sax.TeeContentHandler;
-import org.xml.sax.ContentHandler;
-import org.xml.sax.SAXException;
-import org.xml.sax.helpers.DefaultHandler;
 
 public class TIAParsingExample {
     public static String parseToStringExample() throws Exception {
@@ -107,8 +108,7 @@ public class TIAParsingExample {
     public static File tikaInputStreamGetFile(String filename) throws Exception {
         try (InputStream stream = TikaInputStream.get(new File(filename))) {
             TikaInputStream tikaInputStream = TikaInputStream.get(stream);
-            File file = tikaInputStream.getFile();
-            return file;
+            return tikaInputStream.getFile();
         }
     }
 
@@ -125,7 +125,7 @@ public class TIAParsingExample {
         InputStream stream = new ByteArrayInputStream(new byte[0]);
         ContentHandler handler = new DefaultHandler();
         ParseContext context = new ParseContext();
-        Map<MediaType, Parser> parsersByType = new HashMap<MediaType, Parser>();
+        Map<MediaType, Parser> parsersByType = new HashMap<>();
         parsersByType.put(MediaType.parse("text/html"), new HtmlParser());
         parsersByType.put(MediaType.parse("application/xml"), new XMLParser());
 
@@ -154,8 +154,8 @@ public class TIAParsingExample {
         Parser parser = new AutoDetectParser();
         LinkContentHandler linkCollector = new LinkContentHandler();
         try (OutputStream output = new FileOutputStream(new File(filename))) {
-            ContentHandler handler = new TeeContentHandler(
-                    new BodyContentHandler(output), linkCollector);
+            ContentHandler handler =
+                    new TeeContentHandler(new BodyContentHandler(output), linkCollector);
             parser.parse(stream, handler, metadata, context);
         }
     }
@@ -190,8 +190,8 @@ public class TIAParsingExample {
             private static final long serialVersionUID = 4424210691523343833L;
 
             @Override
-            public void parse(InputStream stream, ContentHandler handler,
-                              Metadata metadata, ParseContext context)
+            public void parse(InputStream stream, ContentHandler handler, Metadata metadata,
+                              ParseContext context)
                     throws IOException, SAXException, TikaException {
                 // custom processing of the component document
             }

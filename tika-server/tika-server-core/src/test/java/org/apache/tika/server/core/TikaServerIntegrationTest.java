@@ -324,16 +324,14 @@ public class TikaServerIntegrationTest extends IntegrationTestBase {
     @Test
     public void testStdErrOutLogging() throws Exception {
         final AtomicInteger i = new AtomicInteger();
-        Thread serverThread = new Thread() {
-            @Override
-            public void run() {
-                TikaServerCli.main(new String[]{"-p", INTEGRATION_TEST_PORT, "-taskTimeoutMillis",
-                        "10000", "-taskPulseMillis", "500", "-pingPulseMillis", "100",
-                        "-maxRestarts", "0",
-                        "-JDlog4j.configuration=file:" + LOG_FILE.toAbsolutePath(),
-                        "-tmpFilePrefix", "tika-server-stderrlogging"});
-            }
-        };
+        Thread serverThread = new Thread(() -> TikaServerCli.main(
+                new String[]{
+                    "-p", INTEGRATION_TEST_PORT, "-taskTimeoutMillis",
+                    "10000", "-taskPulseMillis", "500", "-pingPulseMillis", "100",
+                    "-maxRestarts", "0",
+                    "-JDlog4j.configuration=file:" + LOG_FILE.toAbsolutePath(),
+                    "-tmpFilePrefix", "tika-server-stderrlogging"
+                }));
         serverThread.start();
         awaitServerStartup();
 
@@ -379,7 +377,6 @@ public class TikaServerIntegrationTest extends IntegrationTestBase {
                     } else if (r.nextFloat() < 0.02) {
                         file = TEST_HEAVY_HANG;
                     }
-                    System.out.println("writing file " + i + " : " + file);
                     response = WebClient.create(endPoint + META_PATH).accept("application/json")
                             .put(ClassLoader.getSystemResourceAsStream(file));
                 } catch (Exception e) {

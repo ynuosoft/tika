@@ -42,8 +42,8 @@ public class DIFContentHandler extends DefaultHandler {
         this.delegate = delegate;
         this.isLeaf = false;
         this.metadata = metadata;
-        this.treeStack = new Stack<String>();
-        this.dataStack = new Stack<String>();
+        this.treeStack = new Stack<>();
+        this.dataStack = new Stack<>();
     }
 
     @Override
@@ -116,16 +116,16 @@ public class DIFContentHandler extends DefaultHandler {
         }
         if (this.isLeaf) {
             Stack<String> tempStack = (Stack<String>) this.treeStack.clone();
-            String key = "";
+            StringBuilder key = new StringBuilder();
             while (!tempStack.isEmpty()) {
                 if (key.length() == 0) {
-                    key = tempStack.pop();
+                    key = new StringBuilder(tempStack.pop());
                 } else {
-                    key = tempStack.pop() + "-" + key;
+                    key.insert(0, tempStack.pop() + "-");
                 }
             }
             String value = this.dataStack.peek();
-            this.metadata.add(key, value);
+            this.metadata.add(key.toString(), value);
             this.isLeaf = false;
         }
         this.treeStack.pop();

@@ -1,3 +1,9 @@
+Release 2.0.0-BETA - 05/19/2021
+   
+   * Refactor pipes module for resilience
+
+   * Add transcribe capability (TIKA-94).
+
 Release 2.0.0-ALPHA - 01/13/2021
 
    BREAKING CHANGES in 2.0.0
@@ -22,7 +28,7 @@ Release 2.0.0-ALPHA - 01/13/2021
 
    * tika-parsers
      * The parser modules have been broken into three main modules:
-        tika-parsers-classic, tika-parsers-extended and tika-parsers-advanced.
+        tika-parsers-standard, tika-parsers-extended and tika-parsers-ml.
         Users may now need to add tika-parsers-extended to tika-app and
         tika-server to include parsers that used to be included by default
         (for example: envi, gdal, grib, isatab, netcdf).
@@ -40,12 +46,12 @@ Release 2.0.0-ALPHA - 01/13/2021
        receive connections for brief periods.  The less robust, legacy behavior
        of not forking a process is available with "-noFork"
 
-     * tika-server's /metadata endpoint requires tika-server-classic to write XMP/rdf output.
+     * tika-server's /metadata endpoint requires tika-server-standard to write XMP/rdf output.
        This output is not available in tika-server-core.
 
 
 Release 1.27 - ??
-
+   * Apply encoding detection to zip entry names via Ryan421 (TIKA-3374).
    * Add json output for /tika endpoint in tika-server (TIKA-3352).
    * Tika's OpenNLPDetector now covers 148 languages and language-script pairs (TIKA-3340).
 

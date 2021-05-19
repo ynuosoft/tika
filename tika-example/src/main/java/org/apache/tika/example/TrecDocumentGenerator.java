@@ -34,8 +34,8 @@ import org.apache.tika.metadata.TikaCoreProperties;
  */
 @SuppressWarnings("deprecation")
 public class TrecDocumentGenerator {
-    public TrecDocument summarize(File file) throws FileNotFoundException,
-            IOException, TikaException {
+    public TrecDocument summarize(File file)
+            throws FileNotFoundException, IOException, TikaException {
         Tika tika = new Tika();
         Metadata met = new Metadata();
 
@@ -49,7 +49,7 @@ public class TrecDocumentGenerator {
     // http://svn.apache.org/repos/asf/lucene/openrelevance/trunk/src/java/org/
     // apache/orp/util/TrecDocument.java
     // since the ORP jars aren't published anywhere
-    class TrecDocument {
+    static class TrecDocument {
         private CharSequence docname;
         private CharSequence body;
         private Date date;

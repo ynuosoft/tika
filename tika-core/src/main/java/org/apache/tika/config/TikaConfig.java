@@ -58,9 +58,8 @@ import org.apache.tika.exception.TikaConfigException;
 import org.apache.tika.exception.TikaException;
 import org.apache.tika.language.translate.DefaultTranslator;
 import org.apache.tika.language.translate.Translator;
-import org.apache.tika.metadata.filter.CompositeMetadataFilter;
-import org.apache.tika.metadata.filter.DefaultMetadataFilter;
 import org.apache.tika.metadata.filter.MetadataFilter;
+import org.apache.tika.metadata.filter.NoOpFilter;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.mime.MediaTypeRegistry;
 import org.apache.tika.mime.MimeTypeException;
@@ -73,12 +72,6 @@ import org.apache.tika.parser.DefaultParser;
 import org.apache.tika.parser.Parser;
 import org.apache.tika.parser.ParserDecorator;
 import org.apache.tika.parser.multiple.AbstractMultipleParser;
-import org.apache.tika.pipes.emitter.Emitter;
-import org.apache.tika.pipes.emitter.EmitterManager;
-import org.apache.tika.pipes.fetcher.Fetcher;
-import org.apache.tika.pipes.fetcher.FetcherManager;
-import org.apache.tika.pipes.fetchiterator.EmptyFetchIterator;
-import org.apache.tika.pipes.fetchiterator.FetchIterator;
 import org.apache.tika.utils.AnnotationUtils;
 import org.apache.tika.utils.XMLReaderUtils;
 
@@ -97,15 +90,15 @@ public class TikaConfig {
     private final ExecutorService executorService;
     private final EncodingDetector encodingDetector;
     private final MetadataFilter metadataFilter;
-    private final FetcherManager fetcherManager;
-    private final EmitterManager emitterManager;
-    private final FetchIterator fetchIterator;
+
     public TikaConfig(String file) throws TikaException, IOException, SAXException {
         this(Paths.get(file));
     }
+
     public TikaConfig(Path path) throws TikaException, IOException, SAXException {
         this(XMLReaderUtils.buildDOM(path));
     }
+
     public TikaConfig(Path path, ServiceLoader loader)
             throws TikaException, IOException, SAXException {
         this(XMLReaderUtils.buildDOM(path), loader);
@@ -124,13 +117,16 @@ public class TikaConfig {
     public TikaConfig(URL url, ClassLoader loader) throws TikaException, IOException, SAXException {
         this(XMLReaderUtils.buildDOM(url.toString()).getDocumentElement(), loader);
     }
+
     public TikaConfig(URL url, ServiceLoader loader)
             throws TikaException, IOException, SAXException {
         this(XMLReaderUtils.buildDOM(url.toString()).getDocumentElement(), loader);
     }
+
     public TikaConfig(InputStream stream) throws TikaException, IOException, SAXException {
         this(XMLReaderUtils.buildDOM(stream));
     }
+
     public TikaConfig(Document document) throws TikaException, IOException {
         this(document.getDocumentElement());
     }
@@ -152,10 +148,6 @@ public class TikaConfig {
         TranslatorXmlLoader translatorLoader = new TranslatorXmlLoader();
         ExecutorServiceXmlLoader executorLoader = new ExecutorServiceXmlLoader();
         EncodingDetectorXmlLoader encodingDetectorXmlLoader = new EncodingDetectorXmlLoader();
-        MetadataFilterXmlLoader metadataFilterXmlLoader = new MetadataFilterXmlLoader();
-        FetcherXmlLoader fetcherXmlLoader = new FetcherXmlLoader();
-        EmitterXmlLoader emitterXmlLoader = new EmitterXmlLoader();
-        FetchIteratorXmlLoader fetchIteratorXmlLoader = new FetchIteratorXmlLoader();
         updateXMLReaderUtils(element);
         this.mimeTypes = typesFromDomElement(element);
         this.detector = detectorLoader.loadOverall(element, mimeTypes, loader);
@@ -165,10 +157,7 @@ public class TikaConfig {
         this.parser = parserLoader.loadOverall(element, mimeTypes, loader);
         this.translator = translatorLoader.loadOverall(element, mimeTypes, loader);
         this.executorService = executorLoader.loadOverall(element, mimeTypes, loader);
-        this.metadataFilter = metadataFilterXmlLoader.loadOverall(element, mimeTypes, loader);
-        this.fetcherManager = fetcherXmlLoader.loadOverall(element, mimeTypes, loader);
-        this.emitterManager = emitterXmlLoader.loadOverall(element, mimeTypes, loader);
-        this.fetchIterator = fetchIteratorXmlLoader.loadOverall(element, mimeTypes, loader);
+        this.metadataFilter = MetadataFilter.load(element, true);
         this.serviceLoader = loader;
         TIMES_INSTANTIATED.incrementAndGet();
     }
@@ -193,10 +182,7 @@ public class TikaConfig {
         this.parser = getDefaultParser(mimeTypes, serviceLoader, encodingDetector);
         this.translator = getDefaultTranslator(serviceLoader);
         this.executorService = getDefaultExecutorService();
-        this.metadataFilter = getDefaultMetadataFilter(serviceLoader);
-        this.fetcherManager = getDefaultFetcherManager(serviceLoader);
-        this.emitterManager = getDefaultEmitterManager(serviceLoader);
-        this.fetchIterator = getDefaultFetchIterator(serviceLoader);
+        this.metadataFilter = new NoOpFilter();
         TIMES_INSTANTIATED.incrementAndGet();
     }
 
@@ -232,10 +218,7 @@ public class TikaConfig {
             this.detector = getDefaultDetector(mimeTypes, serviceLoader);
             this.translator = getDefaultTranslator(serviceLoader);
             this.executorService = getDefaultExecutorService();
-            this.metadataFilter = getDefaultMetadataFilter(serviceLoader);
-            this.fetcherManager = getDefaultFetcherManager(serviceLoader);
-            this.emitterManager = getDefaultEmitterManager(serviceLoader);
-            this.fetchIterator = getDefaultFetchIterator(serviceLoader);
+            this.metadataFilter = new NoOpFilter();
         } else {
             ServiceLoader tmpServiceLoader = new ServiceLoader();
             try (InputStream stream = getConfigInputStream(config, tmpServiceLoader)) {
@@ -246,10 +229,6 @@ public class TikaConfig {
                 EncodingDetectorXmlLoader encodingDetectorLoader = new EncodingDetectorXmlLoader();
                 TranslatorXmlLoader translatorLoader = new TranslatorXmlLoader();
                 ExecutorServiceXmlLoader executorLoader = new ExecutorServiceXmlLoader();
-                MetadataFilterXmlLoader metadataFilterXmlLoader = new MetadataFilterXmlLoader();
-                FetcherXmlLoader fetcherXmlLoader = new FetcherXmlLoader();
-                EmitterXmlLoader emitterXmlLoader = new EmitterXmlLoader();
-                FetchIteratorXmlLoader fetchIteratorXmlLoader = new FetchIteratorXmlLoader();
 
                 this.mimeTypes = typesFromDomElement(element);
                 this.encodingDetector =
@@ -262,14 +241,7 @@ public class TikaConfig {
                 this.translator = translatorLoader.loadOverall(element, mimeTypes, serviceLoader);
                 this.executorService =
                         executorLoader.loadOverall(element, mimeTypes, serviceLoader);
-                this.metadataFilter =
-                        metadataFilterXmlLoader.loadOverall(element, mimeTypes, serviceLoader);
-                this.fetcherManager =
-                        fetcherXmlLoader.loadOverall(element, mimeTypes, serviceLoader);
-                this.emitterManager =
-                        emitterXmlLoader.loadOverall(element, mimeTypes, serviceLoader);
-                this.fetchIterator =
-                        fetchIteratorXmlLoader.loadOverall(element, mimeTypes, serviceLoader);
+                this.metadataFilter = MetadataFilter.load(element, true);
             } catch (SAXException e) {
                 throw new TikaException("Specified Tika configuration has syntax errors: " + config,
                         e);
@@ -301,22 +273,6 @@ public class TikaConfig {
 
     private static ConfigurableThreadPoolExecutor getDefaultExecutorService() {
         return new SimpleThreadPoolExecutor();
-    }
-
-    private static MetadataFilter getDefaultMetadataFilter(ServiceLoader loader) {
-        return new DefaultMetadataFilter(loader);
-    }
-
-    private static FetcherManager getDefaultFetcherManager(ServiceLoader loader) {
-        return new FetcherManager(Collections.EMPTY_LIST);
-    }
-
-    private static EmitterManager getDefaultEmitterManager(ServiceLoader loader) {
-        return new EmitterManager(Collections.EMPTY_LIST);
-    }
-
-    private static FetchIterator getDefaultFetchIterator(ServiceLoader loader) {
-        return new EmptyFetchIterator();
     }
 
     private static InputStream getConfigInputStream(String config, ServiceLoader serviceLoader)
@@ -405,7 +361,7 @@ public class TikaConfig {
         if (parentNode != null) {
             // Find only the direct child parser/detector objects
             NodeList nodes = parentNode.getChildNodes();
-            List<Element> elements = new ArrayList<Element>();
+            List<Element> elements = new ArrayList<>();
             for (int i = 0; i < nodes.getLength(); i++) {
                 Node node = nodes.item(i);
                 if (node instanceof Element) {
@@ -612,18 +568,6 @@ public class TikaConfig {
         return metadataFilter;
     }
 
-    public FetcherManager getFetcherManager() {
-        return fetcherManager;
-    }
-
-    public EmitterManager getEmitterManager() {
-        return emitterManager;
-    }
-
-    public FetchIterator getFetchIterator() {
-        return fetchIterator;
-    }
-
     private static abstract class XmlLoader<CT, T> {
         protected static final String PARAMS_TAG_NAME = "params";
 
@@ -658,7 +602,7 @@ public class TikaConfig {
         @SuppressWarnings("unchecked")
         CT loadOverall(Element element, MimeTypes mimeTypes, ServiceLoader loader)
                 throws TikaException, IOException {
-            List<T> loaded = new ArrayList<T>();
+            List<T> loaded = new ArrayList<>();
 
             // Find the children of the parent tag, if any
             for (Element le : getTopLevelElementChildren(element, getParentTagName(),
@@ -732,7 +676,7 @@ public class TikaConfig {
                 // Is this a composite or decorated class? If so, support recursion
                 if (isComposite(loadedClass)) {
                     // Get the child objects for it
-                    List<T> children = new ArrayList<T>();
+                    List<T> children = new ArrayList<>();
                     NodeList childNodes = element.getElementsByTagName(getLoaderTagName());
                     if (childNodes.getLength() > 0) {
                         for (int i = 0; i < childNodes.getLength(); i++) {
@@ -745,7 +689,7 @@ public class TikaConfig {
                     }
 
                     // Get the list of children to exclude
-                    Set<Class<? extends T>> excludeChildren = new HashSet<Class<? extends T>>();
+                    Set<Class<? extends T>> excludeChildren = new HashSet<>();
                     NodeList excludeChildNodes =
                             element.getElementsByTagName(getLoaderTagName() + "-exclude");
                     if (excludeChildNodes.getLength() > 0) {
@@ -1358,316 +1302,4 @@ public class TikaConfig {
         }
     }
 
-    private static class MetadataFilterXmlLoader extends XmlLoader<MetadataFilter, MetadataFilter> {
-
-        boolean supportsComposite() {
-            return true;
-        }
-
-        String getParentTagName() {
-            return "metadataFilters";
-        }
-
-        String getLoaderTagName() {
-            return "metadataFilter";
-        }
-
-        @Override
-        Class<? extends MetadataFilter> getLoaderClass() {
-            return MetadataFilter.class;
-        }
-
-
-        @Override
-        boolean isComposite(MetadataFilter loaded) {
-            return loaded instanceof CompositeMetadataFilter;
-        }
-
-        @Override
-        boolean isComposite(Class<? extends MetadataFilter> loadedClass) {
-            return CompositeMetadataFilter.class.isAssignableFrom(loadedClass);
-        }
-
-        @Override
-        MetadataFilter preLoadOne(Class<? extends MetadataFilter> loadedClass, String classname,
-                                  MimeTypes mimeTypes) throws TikaException {
-            // Check for classes which can't be set in config
-            // Continue with normal loading
-            return null;
-        }
-
-        @Override
-        MetadataFilter createDefault(MimeTypes mimeTypes, ServiceLoader loader) {
-            return getDefaultMetadataFilter(loader);
-        }
-
-        //this ignores the service loader
-        @Override
-        MetadataFilter createComposite(List<MetadataFilter> loaded, MimeTypes mimeTypes,
-                                       ServiceLoader loader) {
-            return new DefaultMetadataFilter(loaded);
-        }
-
-        @Override
-        MetadataFilter createComposite(Class<? extends MetadataFilter> metadataFilterClass,
-                                       List<MetadataFilter> childMetadataFilters,
-                                       Set<Class<? extends MetadataFilter>> excludeFilters,
-                                       Map<String, Param> params, MimeTypes mimeTypes,
-                                       ServiceLoader loader)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            MetadataFilter metadataFilter = null;
-            Constructor<? extends MetadataFilter> c;
-
-            // Try the possible default and composite detector constructors
-            if (metadataFilter == null) {
-                try {
-                    c = metadataFilterClass.getConstructor(ServiceLoader.class, Collection.class);
-                    metadataFilter = c.newInstance(loader, excludeFilters);
-                } catch (NoSuchMethodException me) {
-                    me.printStackTrace();
-                }
-            }
-            if (metadataFilter == null) {
-                try {
-                    c = metadataFilterClass.getConstructor(List.class);
-                    metadataFilter = c.newInstance(childMetadataFilters);
-                } catch (NoSuchMethodException me) {
-                    me.printStackTrace();
-                }
-            }
-
-            return metadataFilter;
-        }
-
-        @Override
-        MetadataFilter decorate(MetadataFilter created, Element element) {
-            return created; // No decoration of MetadataFilters
-        }
-    }
-
-    private static class FetcherXmlLoader extends XmlLoader<FetcherManager, Fetcher> {
-
-        //FetcherManager is composite
-        boolean supportsComposite() {
-            return true;
-        }
-
-        String getParentTagName() {
-            return "fetchers";
-        }
-
-        String getLoaderTagName() {
-            return "fetcher";
-        }
-
-        @Override
-        Class<? extends Fetcher> getLoaderClass() {
-            return Fetcher.class;
-        }
-
-
-        @Override
-        boolean isComposite(Fetcher loaded) {
-            return false;
-        }
-
-        @Override
-        boolean isComposite(Class<? extends Fetcher> loadedClass) {
-            return false;
-        }
-
-        @Override
-        Fetcher preLoadOne(Class<? extends Fetcher> loadedClass, String classname,
-                           MimeTypes mimeTypes) throws TikaException {
-            // Check for classes which can't be set in config
-            // Continue with normal loading
-            return null;
-        }
-
-        @Override
-        FetcherManager createDefault(MimeTypes mimeTypes, ServiceLoader loader) {
-            return getDefaultFetcherManager(loader);
-        }
-
-        //this ignores the service loader
-        @Override
-        FetcherManager createComposite(List<Fetcher> loaded, MimeTypes mimeTypes,
-                                       ServiceLoader loader) {
-            return new FetcherManager(loaded);
-        }
-
-        @Override
-        Fetcher createComposite(Class<? extends Fetcher> fetcherClass, List<Fetcher> childFetchers,
-                                Set<Class<? extends Fetcher>> excludeFilters,
-                                Map<String, Param> params, MimeTypes mimeTypes,
-                                ServiceLoader loader)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            throw new InstantiationException("Only one fetcher manager supported");
-
-        }
-
-        @Override
-        Fetcher decorate(Fetcher created, Element element) {
-            return created; // No decoration of MetadataFilters
-        }
-    }
-
-    private static class EmitterXmlLoader extends XmlLoader<EmitterManager, Emitter> {
-
-        boolean supportsComposite() {
-            return true;
-        }
-
-        String getParentTagName() {
-            return "emitters";
-        }
-
-        String getLoaderTagName() {
-            return "emitter";
-        }
-
-        @Override
-        Class<? extends Emitter> getLoaderClass() {
-            return Emitter.class;
-        }
-
-
-        @Override
-        boolean isComposite(Emitter loaded) {
-            return false;
-        }
-
-        @Override
-        boolean isComposite(Class<? extends Emitter> loadedClass) {
-            return false;
-        }
-
-        @Override
-        Emitter preLoadOne(Class<? extends Emitter> loadedClass, String classname,
-                           MimeTypes mimeTypes) throws TikaException {
-            // Check for classes which can't be set in config
-            // Continue with normal loading
-            return null;
-        }
-
-        @Override
-        EmitterManager createDefault(MimeTypes mimeTypes, ServiceLoader loader) {
-            return getDefaultEmitter(loader);
-        }
-
-        private EmitterManager getDefaultEmitter(ServiceLoader loader) {
-            return new EmitterManager(Collections.EMPTY_LIST);
-        }
-
-        //this ignores the service loader
-        @Override
-        EmitterManager createComposite(List<Emitter> loaded, MimeTypes mimeTypes,
-                                       ServiceLoader loader) {
-            return new EmitterManager(loaded);
-        }
-
-        @Override
-        Emitter createComposite(Class<? extends Emitter> emitterClass, List<Emitter> childEmitters,
-                                Set<Class<? extends Emitter>> excludeFilters,
-                                Map<String, Param> params, MimeTypes mimeTypes,
-                                ServiceLoader loader)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            Emitter emitter = null;
-            Constructor<? extends Emitter> c;
-
-            // Try the possible default and composite detector constructors
-            if (emitter == null) {
-                try {
-                    c = emitterClass.getConstructor(ServiceLoader.class, Collection.class);
-                    emitter = c.newInstance(loader, excludeFilters);
-                } catch (NoSuchMethodException me) {
-                    me.printStackTrace();
-                }
-            }
-            if (emitter == null) {
-                try {
-                    c = emitterClass.getConstructor(List.class);
-                    emitter = c.newInstance(childEmitters);
-                } catch (NoSuchMethodException me) {
-                    me.printStackTrace();
-                }
-            }
-
-            return emitter;
-        }
-
-        @Override
-        Emitter decorate(Emitter created, Element element) {
-            return created; // No decoration of emitters yet
-        }
-    }
-
-    private static class FetchIteratorXmlLoader extends XmlLoader<FetchIterator, FetchIterator> {
-
-        boolean supportsComposite() {
-            return false;
-        }
-
-        String getParentTagName() {
-            return "fetchIterators";
-        }
-
-        String getLoaderTagName() {
-            return "fetchIterator";
-        }
-
-        @Override
-        Class<? extends FetchIterator> getLoaderClass() {
-            return FetchIterator.class;
-        }
-
-        @Override
-        boolean isComposite(FetchIterator loaded) {
-            return false;
-        }
-
-        @Override
-        boolean isComposite(Class<? extends FetchIterator> loadedClass) {
-            return false;
-        }
-
-        @Override
-        FetchIterator preLoadOne(Class<? extends FetchIterator> loadedClass, String classname,
-                                 MimeTypes mimeTypes) throws TikaException {
-            // Check for classes which can't be set in config
-            // Continue with normal loading
-            return null;
-        }
-
-        @Override
-        FetchIterator createDefault(MimeTypes mimeTypes, ServiceLoader loader) {
-            return new EmptyFetchIterator();
-        }
-
-        //this ignores the service loader
-        @Override
-        FetchIterator createComposite(List<FetchIterator> loaded, MimeTypes mimeTypes,
-                                      ServiceLoader loader) {
-            if (loaded.size() > 1) {
-                throw new IllegalArgumentException(
-                        "Can only specify one fetch iterator per config file");
-            }
-            return loaded.get(0);
-        }
-
-        @Override
-        FetchIterator createComposite(Class<? extends FetchIterator> fetchIteratorClass,
-                                      List<FetchIterator> fetchIteratorChildren,
-                                      Set<Class<? extends FetchIterator>> excludeFetchIterators,
-                                      Map<String, Param> params, MimeTypes mimeTypes,
-                                      ServiceLoader loader)
-                throws InvocationTargetException, IllegalAccessException, InstantiationException {
-            return null;
-        }
-
-        @Override
-        FetchIterator decorate(FetchIterator created, Element element) {
-            return created; // No decoration of FetchIterators yet
-        }
-    }
 }

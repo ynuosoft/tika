@@ -120,14 +120,14 @@ class SQLite3DBParser extends AbstractDBParser {
     @Override
     protected List<String> getTableNames(Connection connection, Metadata metadata,
                                          ParseContext context) throws SQLException {
-        List<String> tableNames = new LinkedList<String>();
+        List<String> tableNames = new LinkedList<>();
 
         try (Statement st = connection.createStatement()) {
             String sql = "SELECT name FROM sqlite_master WHERE type='table'";
-            ResultSet rs = st.executeQuery(sql);
-
-            while (rs.next()) {
-                tableNames.add(rs.getString(1));
+            try (ResultSet rs = st.executeQuery(sql)) {
+                while (rs.next()) {
+                    tableNames.add(rs.getString(1));
+                }
             }
         }
         return tableNames;

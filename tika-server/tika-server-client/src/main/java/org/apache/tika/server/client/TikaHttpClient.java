@@ -92,7 +92,6 @@ class TikaHttpClient {
     }
 
     private TikaEmitterResult postJson(String endPoint, String jsonRequest) {
-        System.out.println("NED:" + endPoint);
         HttpPost post = new HttpPost(endPoint);
         ByteArrayEntity entity = new ByteArrayEntity(jsonRequest.getBytes(StandardCharsets.UTF_8));
         post.setEntity(entity);
@@ -165,7 +164,7 @@ class TikaHttpClient {
         throw new TimeoutWaitingForTikaException("");
     }
 
-    private class TimeoutWaitingForTikaException extends TikaException {
+    private static class TimeoutWaitingForTikaException extends TikaException {
         public TimeoutWaitingForTikaException(String msg) {
             super(msg);
         }

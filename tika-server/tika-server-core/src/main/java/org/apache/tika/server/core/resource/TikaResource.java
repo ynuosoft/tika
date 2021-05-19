@@ -23,7 +23,6 @@ import static org.apache.tika.server.core.resource.RecursiveMetadataResource.HAN
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.OutputStream;
 import java.io.OutputStreamWriter;
 import java.io.Writer;
 import java.lang.reflect.Field;
@@ -66,6 +65,7 @@ import org.apache.tika.Tika;
 import org.apache.tika.config.TikaConfig;
 import org.apache.tika.exception.EncryptedDocumentException;
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.exception.WriteLimitReachedException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.metadata.TikaCoreProperties;
 import org.apache.tika.parser.AutoDetectParser;
@@ -348,7 +348,9 @@ public class TikaResource {
             logger.warn("{}: Encrypted document ({})", path, fileName, e);
             throw new TikaServerParseException(e);
         } catch (Exception e) {
-            logger.warn("{}: Text extraction failed ({})", path, fileName, e);
+            if (! WriteLimitReachedException.isWriteLimitReached(e)) {
+                logger.warn("{}: Text extraction failed ({})", path, fileName, e);
+            }
             throw new TikaServerParseException(e);
         } catch (OutOfMemoryError e) {
             logger.warn("{}: OOM ({})", path, fileName, e);
@@ -429,15 +431,12 @@ public class TikaResource {
 
         logRequest(LOG, "/tika", metadata);
 
-        return new StreamingOutput() {
-            public void write(OutputStream outputStream)
-                    throws IOException, WebApplicationException {
-                Writer writer = new OutputStreamWriter(outputStream, UTF_8);
+        return outputStream -> {
+            Writer writer = new OutputStreamWriter(outputStream, UTF_8);
 
-                ContentHandler handler = new BoilerpipeContentHandler(writer);
+            ContentHandler handler = new BoilerpipeContentHandler(writer);
 
-                parse(parser, LOG, info.getPath(), is, handler, metadata, context);
-            }
+            parse(parser, LOG, info.getPath(), is, handler, metadata, context);
         };
     }
 
@@ -463,16 +462,13 @@ public class TikaResource {
 
         logRequest(LOG, "/tika", metadata);
 
-        return new StreamingOutput() {
-            public void write(OutputStream outputStream)
-                    throws IOException, WebApplicationException {
-                Writer writer = new OutputStreamWriter(outputStream, UTF_8);
+        return outputStream -> {
+            Writer writer = new OutputStreamWriter(outputStream, UTF_8);
 
-                BodyContentHandler body =
-                        new BodyContentHandler(new RichTextContentHandler(writer));
+            BodyContentHandler body =
+                    new BodyContentHandler(new RichTextContentHandler(writer));
 
-                parse(parser, LOG, info.getPath(), is, body, metadata, context);
-            }
+            parse(parser, LOG, info.getPath(), is, body, metadata, context);
         };
     }
 
@@ -574,8 +570,13 @@ public class TikaResource {
         try {
             parse(parser, LOG, info.getPath(), inputStream, contentHandler, metadata, context);
         } catch (TikaServerParseException e) {
+            Throwable cause = e.getCause();
+            boolean writeLimitReached = false;
+            if (WriteLimitReachedException.isWriteLimitReached(cause)) {
+                metadata.set(TikaCoreProperties.WRITE_LIMIT_REACHED, "true");
+                writeLimitReached = true;
+            }
             if (tikaServerConfig.isReturnStackTrace()) {
-                Throwable cause = e.getCause();
                 if (cause != null) {
                     metadata.add(TikaCoreProperties.CONTAINER_EXCEPTION,
                             ExceptionUtils.getStackTrace(cause));
@@ -583,7 +584,7 @@ public class TikaResource {
                     metadata.add(TikaCoreProperties.CONTAINER_EXCEPTION,
                             ExceptionUtils.getStackTrace(e));
                 }
-            } else {
+            } else if (! writeLimitReached) {
                 throw e;
             }
         } catch (OutOfMemoryError e) {
@@ -610,27 +611,24 @@ public class TikaResource {
 
         logRequest(LOG, "/tika", metadata);
 
-        return new StreamingOutput() {
-            public void write(OutputStream outputStream)
-                    throws IOException, WebApplicationException {
-                Writer writer = new OutputStreamWriter(outputStream, UTF_8);
-                ContentHandler content;
+        return outputStream -> {
+            Writer writer = new OutputStreamWriter(outputStream, UTF_8);
+            ContentHandler content;
 
-                try {
-                    SAXTransformerFactory factory =
-                            (SAXTransformerFactory) SAXTransformerFactory.newInstance();
-                    TransformerHandler handler = factory.newTransformerHandler();
-                    handler.getTransformer().setOutputProperty(OutputKeys.METHOD, format);
-                    handler.getTransformer().setOutputProperty(OutputKeys.INDENT, "yes");
-                    handler.getTransformer().setOutputProperty(OutputKeys.ENCODING, UTF_8.name());
-                    handler.setResult(new StreamResult(writer));
-                    content = new ExpandedTitleContentHandler(handler);
-                } catch (TransformerConfigurationException e) {
-                    throw new WebApplicationException(e);
-                }
-
-                parse(parser, LOG, info.getPath(), is, content, metadata, context);
+            try {
+                SAXTransformerFactory factory =
+                        (SAXTransformerFactory) SAXTransformerFactory.newInstance();
+                TransformerHandler handler = factory.newTransformerHandler();
+                handler.getTransformer().setOutputProperty(OutputKeys.METHOD, format);
+                handler.getTransformer().setOutputProperty(OutputKeys.INDENT, "yes");
+                handler.getTransformer().setOutputProperty(OutputKeys.ENCODING, UTF_8.name());
+                handler.setResult(new StreamResult(writer));
+                content = new ExpandedTitleContentHandler(handler);
+            } catch (TransformerConfigurationException e) {
+                throw new WebApplicationException(e);
             }
+
+            parse(parser, LOG, info.getPath(), is, content, metadata, context);
         };
     }
 

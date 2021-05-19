@@ -46,7 +46,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -60,13 +59,8 @@ import java.util.UUID;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.io.input.CloseShieldInputStream;
-import org.apache.log4j.Level;
-import org.apache.log4j.LogManager;
-import org.apache.log4j.PropertyConfigurator;
-import org.apache.poi.poifs.filesystem.DirectoryEntry;
-import org.apache.poi.poifs.filesystem.DocumentEntry;
-import org.apache.poi.poifs.filesystem.DocumentInputStream;
-import org.apache.poi.poifs.filesystem.POIFSFileSystem;
+
+
 import org.apache.tika.Tika;
 import org.apache.tika.batch.BatchProcessDriverCLI;
 import org.apache.tika.config.TikaConfig;
@@ -101,6 +95,10 @@ import org.apache.tika.parser.PasswordProvider;
 import org.apache.tika.parser.RecursiveParserWrapper;
 import org.apache.tika.parser.digestutils.CommonsDigester;
 import org.apache.tika.parser.pdf.PDFParserConfig;
+import org.apache.tika.pipes.FetchEmitTuple;
+import org.apache.tika.pipes.PipesException;
+import org.apache.tika.pipes.async.AsyncProcessor;
+import org.apache.tika.pipes.pipesiterator.PipesIterator;
 import org.apache.tika.sax.BasicContentHandlerFactory;
 import org.apache.tika.sax.BodyContentHandler;
 import org.apache.tika.sax.ContentHandlerFactory;
@@ -109,6 +107,8 @@ import org.apache.tika.sax.RecursiveParserWrapperHandler;
 import org.apache.tika.sax.WriteOutContentHandler;
 import org.apache.tika.sax.boilerpipe.BoilerpipeContentHandler;
 import org.apache.tika.xmp.XMPMetadata;
+
+import org.apache.logging.log4j.Level;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.xml.sax.ContentHandler;
@@ -131,12 +131,6 @@ public class TikaCLI {
     public static void main(String[] args) throws Exception {
         TikaCLI cli = new TikaCLI();
 
-        if (!isConfigured()) {
-            try (InputStream is = cli.getClass().getResourceAsStream("/log4j.properties")) {
-                PropertyConfigurator.configure(is);
-            }
-        }
-
         if (cli.testForHelp(args)) {
             cli.usage();
             return;
@@ -144,6 +138,9 @@ public class TikaCLI {
             String[] batchArgs = BatchCommandLineBuilder.build(args);
             BatchProcessDriverCLI batchDriver = new BatchProcessDriverCLI(batchArgs);
             batchDriver.execute();
+            return;
+        } else if (cli.testForAsync(args)) {
+            async(args);
             return;
         }
 
@@ -169,21 +166,39 @@ public class TikaCLI {
         }
     }
 
-    private static boolean isConfigured() {
-        //Borrowed from: http://wiki.apache.org/logging-log4j/UsefulCode
-        Enumeration appenders = LogManager.getRootLogger().getAllAppenders();
-        if (appenders.hasMoreElements()) {
-            return true;
-        }
-        else {
-            Enumeration loggers = LogManager.getCurrentLoggers() ;
-            while (loggers.hasMoreElements()) {
-                org.apache.log4j.Logger c = (org.apache.log4j.Logger) loggers.nextElement();
-                if (c.getAllAppenders().hasMoreElements())
-                    return true;
+    private boolean testForAsync(String[] args) {
+        for (String arg : args) {
+            if (arg.equals("-a") || arg.equals("--async")) {
+                return true;
             }
         }
         return false;
+    }
+
+    private static void async(String[] args) throws InterruptedException, PipesException,
+            TikaException,
+            IOException,
+            SAXException {
+        String tikaConfigPath = "";
+        for (String arg : args) {
+            if (arg.startsWith("--config=")) {
+                tikaConfigPath = arg.substring(9);
+            }
+        }
+        PipesIterator pipesIterator = PipesIterator.build(Paths.get(tikaConfigPath));
+        try (AsyncProcessor processor = new AsyncProcessor(Paths.get(tikaConfigPath))) {
+            for (FetchEmitTuple t : pipesIterator) {
+                processor.offer(t, 2000);
+            }
+            processor.finished();
+            while (true) {
+                if (processor.checkActive()) {
+                    Thread.sleep(500);
+                } else {
+                    break;
+                }
+            }
+        }
     }
 
     private void extractInlineImagesFromPDFs() {
@@ -362,6 +377,8 @@ public class TikaCLI {
 
     private DigestingParser.Digester digester = null;
 
+    private boolean asyncMode = false;
+
     private boolean pipeMode = true;
 
     private boolean fork = false;
@@ -376,7 +393,7 @@ public class TikaCLI {
             pipeMode = false;
             version();
         } else if (arg.equals("-v") || arg.equals("--verbose")) {
-            org.apache.log4j.Logger.getRootLogger().setLevel(Level.DEBUG);
+            org.apache.logging.log4j.core.config.Configurator.setRootLevel(Level.DEBUG);
         } else if (arg.equals("-g") || arg.equals("--gui")) {
             pipeMode = false;
             if (configFilePath != null){
@@ -422,7 +439,9 @@ public class TikaCLI {
             // ignore, as container-aware detectors are now always used
         } else if (arg.equals("-f") || arg.equals("--fork")) {
             fork = true;
-        } else if (arg.startsWith("--config=")) {
+        } else if (arg.equals("-a") || arg.equals("--async")) {
+            asyncMode = true;
+        } else  if (arg.startsWith("--config=")) {
             configFilePath = arg.substring("--config=".length());
         } else if (arg.startsWith("--digest=")) {
             digester = new CommonsDigester(MAX_MARK,
@@ -580,6 +599,8 @@ public class TikaCLI {
         out.println("    -J  or --jsonRecursive Output metadata and content from all");
         out.println("                           embedded files (choose content type");
         out.println("                           with -x, -h, -t or -m; default is -x)");
+        out.println("    -a  or --async         Run Tika in async mode; must specify details in a" +
+                " tikaConfig file");
         out.println("    -l  or --language      Output only language");
         out.println("    -d  or --detect        Detect document type");
         out.println("           --digest=X      Include digest X (md2, md5, sha1,");
@@ -713,11 +734,7 @@ public class TikaCLI {
 
     private void displayMetModels(){
         Class<?>[] modelClasses = Metadata.class.getInterfaces();
-        Arrays.sort(modelClasses, new Comparator<Class<?>>() {
-            public int compare(Class<?> o1, Class<?> o2) {
-                return o1.getName().compareTo(o2.getName());
-            }
-        });
+        Arrays.sort(modelClasses, Comparator.comparing(Class::getName));
 
         for (Class<?> modelClass: modelClasses) {
             // we don't care about internal Tika met classes
@@ -725,11 +742,7 @@ public class TikaCLI {
             if (!modelClass.getSimpleName().contains("Tika")) {
                 System.out.println(modelClass.getSimpleName());
                 Field[] keyFields = modelClass.getFields();
-                Arrays.sort(keyFields, new Comparator<Field>() {
-                    public int compare(Field o1, Field o2) {
-                        return o1.getName().compareTo(o2.getName());
-                    }
-                });
+                Arrays.sort(keyFields, Comparator.comparing(Field::getName));
                 for (Field keyField: keyFields) {
                     System.out.println(" "+keyField.getName());
                 }
@@ -811,21 +824,19 @@ public class TikaCLI {
     private Parser[] sortParsers(Map<Parser, Set<MediaType>> parsers) {
         // Get a nicely sorted list of the parsers
         Parser[] sortedParsers = parsers.keySet().toArray(new Parser[0]);
-        Arrays.sort(sortedParsers, new Comparator<Parser>() {
-            public int compare(Parser p1, Parser p2) {
-                String name1 = p1.getClass().getName();
-                String name2 = p2.getClass().getName();
-                return name1.compareTo(name2);
-            }
+        Arrays.sort(sortedParsers, (p1, p2) -> {
+            String name1 = p1.getClass().getName();
+            String name2 = p2.getClass().getName();
+            return name1.compareTo(name2);
         });
         return sortedParsers;
     }
 
     private Map<Parser, Set<MediaType>> invertMediaTypeMap(Map<MediaType, Parser> supported) {
-        Map<Parser,Set<MediaType>> parsers = new HashMap<Parser, Set<MediaType>>();
+        Map<Parser,Set<MediaType>> parsers = new HashMap<>();
         for(Entry<MediaType, Parser> e : supported.entrySet()) {
             if (!parsers.containsKey(e.getValue())) {
-                parsers.put(e.getValue(), new HashSet<MediaType>());
+                parsers.put(e.getValue(), new HashSet<>());
             }
             parsers.get(e.getValue()).add(e.getKey());
         }
@@ -866,8 +877,8 @@ public class TikaCLI {
      * @param magicDir Path to the magic directory
      */
     private void compareFileMagic(String magicDir) throws Exception {
-        Set<String> tikaLacking = new TreeSet<String>();
-        Set<String> tikaNoMagic = new TreeSet<String>();
+        Set<String> tikaLacking = new TreeSet<>();
+        Set<String> tikaNoMagic = new TreeSet<>();
         
         // Sanity check
         File dir = new File(magicDir);
@@ -881,7 +892,7 @@ public class TikaCLI {
         }
     
         // Find all the mimetypes in the directory
-        Set<String> fileMimes = new HashSet<String>();
+        Set<String> fileMimes = new HashSet<>();
         for (File mf : dir.listFiles()) {
             if (mf.isFile()) {
                 BufferedReader r = new BufferedReader(new InputStreamReader(
@@ -1144,7 +1155,7 @@ public class TikaCLI {
         }
     }
 
-    private class NoDocumentMetHandler extends DefaultHandler {
+    private static class NoDocumentMetHandler extends DefaultHandler {
 
         protected final Metadata metadata;
 
@@ -1184,7 +1195,7 @@ public class TikaCLI {
     /**
      * Outputs the Tika metadata as XMP using the Tika XMP module
      */
-    private class NoDocumentXMPMetaHandler extends DefaultHandler
+    private static class NoDocumentXMPMetaHandler extends DefaultHandler
     {
     	protected final Metadata metadata;
     	

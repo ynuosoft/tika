@@ -33,7 +33,7 @@ public class StandardOrganizations {
     private static final Map<String, String> organizations;
 
     static {
-        organizations = new TreeMap<String, String>();
+        organizations = new TreeMap<>();
         //International standard organizations
         organizations.put("3GPP", "3rd Generation Partnership Project");
         organizations.put("3GPP2", "3rd Generation Partnership Project 2");
@@ -186,8 +186,7 @@ public class StandardOrganizations {
      * organizations.
      */
     public static String getOrganzationsRegex() {
-        String regex = "(" + String.join("|", organizations.keySet()) + ")";
 
-        return regex;
+        return "(" + String.join("|", organizations.keySet()) + ")";
     }
 }

@@ -19,7 +19,7 @@
   under the License.
 -->
 
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
   <modelVersion>4.0.0</modelVersion>
 
   <parent>
@@ -31,7 +31,7 @@
 
   <artifactId>tika-app</artifactId>
   <name>Apache Tika application</name>
-  <url>http://tika.apache.org/</url>
+  <url>https://tika.apache.org/</url>
 
   <properties>
     <ikvm>${env.IKVM_HOME}</ikvm>
@@ -40,7 +40,7 @@
   <dependencies>
     <dependency>
       <groupId>${project.groupId}</groupId>
-      <artifactId>tika-parsers-classic-package</artifactId>
+      <artifactId>tika-parsers-standard-package</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>
@@ -63,11 +63,22 @@
       <artifactId>tika-batch</artifactId>
       <version>${project.version}</version>
     </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>tika-emitter-fs</artifactId>
+      <version>${project.version}</version>
+    </dependency>
 
     <!-- logging -->
     <dependency>
-      <groupId>org.slf4j</groupId>
-      <artifactId>slf4j-log4j12</artifactId>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-core</artifactId>
+      <version>${log4j2.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>org.apache.logging.log4j</groupId>
+      <artifactId>log4j-slf4j-impl</artifactId>
+      <version>${log4j2.version}</version>
     </dependency>
     <dependency>
       <groupId>org.slf4j</groupId>
@@ -112,7 +123,7 @@
               </createDependencyReducedPom>
               <artifactSet>
                 <excludes>
-                  <exclude>org.apache.tika:tika-parsers-classic-package:jar:</exclude>
+                  <exclude>org.apache.tika:tika-parsers-standard-package:jar:</exclude>
                 </excludes>
               </artifactSet>
               <filters>

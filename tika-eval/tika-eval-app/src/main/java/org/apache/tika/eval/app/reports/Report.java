@@ -49,15 +49,13 @@ public class Report {
 
     final String NULL_VALUE = "";//TODO: make this configurable!!!
     Map<String, XSLXCellFormatter> cellFormatters = new HashMap<>();
-    private XLSXNumFormatter defaultDoubleFormatter = new XLSXNumFormatter("0.000");
-    private XLSXNumFormatter defaultIntegerFormatter = new XLSXNumFormatter("0");
-    private CellStyle sqlCellStyle;
-
     String sql;
     String reportFilename;
     boolean includeSql = true;
-
     String reportName;
+    private XLSXNumFormatter defaultDoubleFormatter = new XLSXNumFormatter("0.000");
+    private XLSXNumFormatter defaultIntegerFormatter = new XLSXNumFormatter("0");
+    private CellStyle sqlCellStyle;
 
     public void writeReport(Connection c, Path reportsRoot) throws SQLException, IOException {
         LOG.info("Writing report: {} to {}", reportName, reportFilename);
@@ -65,61 +63,64 @@ public class Report {
     }
 
     private void dumpXLSX(Connection c, Path reportsRoot) throws IOException, SQLException {
-        Statement st = c.createStatement();
-        Path out = reportsRoot.resolve(reportFilename);
-        Files.createDirectories(out.getParent());
+        try (Statement st = c.createStatement()) {
+            Path out = reportsRoot.resolve(reportFilename);
+            Files.createDirectories(out.getParent());
 
-        SXSSFWorkbook wb = new SXSSFWorkbook(new XSSFWorkbook(), 100, true, true);
-        wb.setCompressTempFiles(true);
-        defaultIntegerFormatter.reset(wb.getXSSFWorkbook());
-        defaultDoubleFormatter.reset(wb.getXSSFWorkbook());
-        sqlCellStyle = wb.createCellStyle();
-        sqlCellStyle.setVerticalAlignment(VerticalAlignment.TOP);
-        sqlCellStyle.setWrapText(true);
+            SXSSFWorkbook wb = new SXSSFWorkbook(new XSSFWorkbook(), 100, true, true);
+            wb.setCompressTempFiles(true);
+            defaultIntegerFormatter.reset(wb.getXSSFWorkbook());
+            defaultDoubleFormatter.reset(wb.getXSSFWorkbook());
+            sqlCellStyle = wb.createCellStyle();
+            sqlCellStyle.setVerticalAlignment(VerticalAlignment.TOP);
+            sqlCellStyle.setWrapText(true);
 
-
-        try {
-            dumpReportToWorkbook(st, wb);
-        } finally {
-            try (OutputStream os = Files.newOutputStream(out)) {
-                wb.write(os);
+            try {
+                dumpReportToWorkbook(st, wb);
             } finally {
-                wb.dispose();
+                try (OutputStream os = Files.newOutputStream(out)) {
+                    wb.write(os);
+                } finally {
+                    wb.dispose();
+                }
             }
         }
     }
 
-    private void dumpReportToWorkbook(Statement st, SXSSFWorkbook wb) throws IOException, SQLException {
-        ResultSet rs = st.executeQuery(sql);
+    private void dumpReportToWorkbook(Statement st, SXSSFWorkbook wb)
+            throws SQLException {
+        SXSSFSheet sheet;
+        try (ResultSet rs = st.executeQuery(sql)) {
 
-        SXSSFSheet sheet = wb.createSheet("tika-eval Report");
-        sheet.trackColumnForAutoSizing(0);
+            sheet = wb.createSheet("tika-eval Report");
+            sheet.trackColumnForAutoSizing(0);
 
-        int rowCount = 0;
-        ResultSetMetaData meta = rs.getMetaData();
-        Set<String> colNames = new HashSet<>();
+            int rowCount = 0;
+            ResultSetMetaData meta = rs.getMetaData();
+            Set<String> colNames = new HashSet<>();
 
-        Row xssfRow = sheet.createRow(rowCount++);
-        //write headers and cache them to check against styles
-        for (int i = 1; i <= meta.getColumnCount(); i++) {
-            Cell cell = xssfRow.createCell(i-1);
-            cell.setCellValue(meta.getColumnLabel(i));
-            colNames.add(meta.getColumnLabel(i));
-        }
-
-        ResultSetMetaData resultSetMetaData = rs.getMetaData();
-        while (rs.next()) {
-            xssfRow = sheet.createRow(rowCount++);
+            Row xssfRow = sheet.createRow(rowCount++);
+            //write headers and cache them to check against styles
             for (int i = 1; i <= meta.getColumnCount(); i++) {
-                Cell cell = xssfRow.createCell(i-1);
-                XSLXCellFormatter formatter = cellFormatters.get(meta.getColumnLabel(i));
-                if (formatter == null) {
-                    formatter = getDefaultFormatter(resultSetMetaData.getColumnType(i));
-                }
-                if (formatter != null) {
-                    formatter.applyStyleAndValue(i, rs, cell);
-                } else {
-                    writeCell(meta, i, rs, cell);
+                Cell cell = xssfRow.createCell(i - 1);
+                cell.setCellValue(meta.getColumnLabel(i));
+                colNames.add(meta.getColumnLabel(i));
+            }
+
+            ResultSetMetaData resultSetMetaData = rs.getMetaData();
+            while (rs.next()) {
+                xssfRow = sheet.createRow(rowCount++);
+                for (int i = 1; i <= meta.getColumnCount(); i++) {
+                    Cell cell = xssfRow.createCell(i - 1);
+                    XSLXCellFormatter formatter = cellFormatters.get(meta.getColumnLabel(i));
+                    if (formatter == null) {
+                        formatter = getDefaultFormatter(resultSetMetaData.getColumnType(i));
+                    }
+                    if (formatter != null) {
+                        formatter.applyStyleAndValue(i, rs, cell);
+                    } else {
+                        writeCell(meta, i, rs, cell);
+                    }
                 }
             }
         }
@@ -130,7 +131,7 @@ public class Report {
         }
 
         SXSSFSheet sqlSheet = wb.createSheet("tika-eval SQL");
-        sqlSheet.setColumnWidth(0, 100*250);
+        sqlSheet.setColumnWidth(0, 100 * 250);
         Row sqlRow = sqlSheet.createRow(0);
         short height = 5000;
         sqlRow.setHeight(height);
@@ -142,7 +143,7 @@ public class Report {
 
     private XSLXCellFormatter getDefaultFormatter(int columnType) {
         switch (columnType) {
-            case Types.INTEGER :
+            case Types.INTEGER:
                 return defaultIntegerFormatter;
             case Types.DOUBLE:
             case Types.FLOAT:
@@ -153,10 +154,10 @@ public class Report {
         }
     }
 
-    private void writeCell(ResultSetMetaData meta, int colIndex, ResultSet rs,
-                           Cell cell) throws SQLException {
+    private void writeCell(ResultSetMetaData meta, int colIndex, ResultSet rs, Cell cell)
+            throws SQLException {
 
-        switch(meta.getColumnType(colIndex)) {
+        switch (meta.getColumnType(colIndex)) {
             //fall through on numerics
             case Types.BIGINT:
             case Types.SMALLINT:
@@ -191,7 +192,8 @@ public class Report {
                 } else {
                     cell.setCellValue(rs.getString(colIndex));
                 }
-                LOG.warn("Couldn't find type for: {}. Defaulting to String", meta.getColumnType(colIndex));
+                LOG.warn("Couldn't find type for: {}. Defaulting to String",
+                        meta.getColumnType(colIndex));
         }
     }
 

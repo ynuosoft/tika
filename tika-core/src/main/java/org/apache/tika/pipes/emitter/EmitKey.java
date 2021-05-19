@@ -16,7 +16,15 @@
  */
 package org.apache.tika.pipes.emitter;
 
-public class EmitKey {
+import java.io.Serializable;
+import java.util.Objects;
+
+public class EmitKey implements Serializable {
+
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = -3861669115439125268L;
 
     private String emitterName;
     private String emitKey;
@@ -55,11 +63,10 @@ public class EmitKey {
 
         EmitKey emitKey1 = (EmitKey) o;
 
-        if (emitterName != null ? !emitterName.equals(emitKey1.emitterName) :
-                emitKey1.emitterName != null) {
+        if (!Objects.equals(emitterName, emitKey1.emitterName)) {
             return false;
         }
-        return emitKey != null ? emitKey.equals(emitKey1.emitKey) : emitKey1.emitKey == null;
+        return Objects.equals(emitKey, emitKey1.emitKey);
     }
 
     @Override

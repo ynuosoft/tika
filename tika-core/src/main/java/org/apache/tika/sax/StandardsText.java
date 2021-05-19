@@ -97,9 +97,7 @@ public class StandardsText {
                                                                          double threshold) {
         Map<Integer, String> headers = findHeaders(text);
 
-        ArrayList<StandardReference> standardReferences = findStandards(text, headers, threshold);
-
-        return standardReferences;
+        return findStandards(text, headers, threshold);
     }
 
     /**
@@ -109,7 +107,7 @@ public class StandardsText {
      * @return the list of headers found within the given text.
      */
     private static Map<Integer, String> findHeaders(String text) {
-        Map<Integer, String> headers = new TreeMap<Integer, String>();
+        Map<Integer, String> headers = new TreeMap<>();
 
         Pattern pattern = Pattern.compile(REGEX_HEADER);
         Matcher matcher = pattern.matcher(text);
@@ -134,7 +132,7 @@ public class StandardsText {
     private static ArrayList<StandardReference> findStandards(String text,
                                                               Map<Integer, String> headers,
                                                               double threshold) {
-        ArrayList<StandardReference> standards = new ArrayList<StandardReference>();
+        ArrayList<StandardReference> standards = new ArrayList<>();
         double score = 0;
 
         Pattern pattern = Pattern.compile(REGEX_FALLBACK);

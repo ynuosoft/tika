@@ -16,7 +16,6 @@
  */
 package org.apache.tika.xmp.convert;
 
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
@@ -38,8 +37,8 @@ import com.adobe.xmp.options.PropertyOptions;
  */
 public class RTFConverter extends AbstractConverter {
     protected static final Set<Namespace> ADDITIONAL_NAMESPACES = Collections
-            .unmodifiableSet( new HashSet<Namespace>( Arrays.asList( new Namespace(
-                    OfficeOpenXMLExtended.NAMESPACE_URI, OfficeOpenXMLExtended.PREFIX ) ) ) );
+            .unmodifiableSet(new HashSet<>(Collections.singletonList(new Namespace(
+                    OfficeOpenXMLExtended.NAMESPACE_URI, OfficeOpenXMLExtended.PREFIX))) );
 
     public RTFConverter() throws TikaException {
         super();

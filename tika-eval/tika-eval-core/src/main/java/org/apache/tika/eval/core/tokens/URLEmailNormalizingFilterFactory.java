@@ -52,7 +52,7 @@ public class URLEmailNormalizingFilterFactory extends TokenFilterFactory {
     /**
      * Normalize urls and emails
      */
-    private class URLEmailFilter extends TokenFilter {
+    private static class URLEmailFilter extends TokenFilter {
 
         private final CharTermAttribute termAtt = addAttribute(CharTermAttribute.class);
         private final TypeAttribute typeAtt = addAttribute(TypeAttribute.class);
@@ -72,7 +72,8 @@ public class URLEmailNormalizingFilterFactory extends TokenFilterFactory {
             if (typeAtt.type() == UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.URL]) {
                 termAtt.copyBuffer(URL_CHARS, 0, URL_CHARS.length);
                 termAtt.setLength(URL_CHARS.length);
-            } else if (typeAtt.type() == UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.EMAIL]) {
+            } else if (typeAtt.type() ==
+                    UAX29URLEmailTokenizer.TOKEN_TYPES[UAX29URLEmailTokenizer.EMAIL]) {
                 termAtt.copyBuffer(EMAIL_CHARS, 0, EMAIL_CHARS.length);
                 termAtt.setLength(EMAIL_CHARS.length);
             }

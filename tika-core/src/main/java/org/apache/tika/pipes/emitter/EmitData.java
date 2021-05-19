@@ -16,11 +16,16 @@
  */
 package org.apache.tika.pipes.emitter;
 
+import java.io.Serializable;
 import java.util.List;
 
 import org.apache.tika.metadata.Metadata;
 
-public class EmitData {
+public class EmitData implements Serializable {
+    /**
+     * Serial version UID
+     */
+    private static final long serialVersionUID = -3861669115439125268L;
 
     private final EmitKey emitKey;
     private final List<Metadata> metadataList;
@@ -38,6 +43,22 @@ public class EmitData {
         return metadataList;
     }
 
+    public long getEstimatedSizeBytes() {
+        return estimateSizeInBytes(getEmitKey().getEmitKey(), getMetadataList());
+    }
+
+    private static long estimateSizeInBytes(String id, List<Metadata> metadataList) {
+        long sz = 36 + id.length() * 2;
+        for (Metadata m : metadataList) {
+            for (String n : m.names()) {
+                sz += 36 + n.length() * 2;
+                for (String v : m.getValues(n)) {
+                    sz += 36 + v.length() * 2;
+                }
+            }
+        }
+        return sz;
+    }
     @Override
     public String toString() {
         return "EmitData{" + "emitKey=" + emitKey + ", metadataList=" + metadataList + '}';

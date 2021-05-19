@@ -17,12 +17,17 @@
 package org.apache.tika.langdetect.tika;
 
 
+import java.io.IOException;
+import java.lang.invoke.MethodHandles;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Language profile based on ngram counts.
@@ -37,7 +42,7 @@ public class LanguageProfile {
     /**
      * The ngrams that make up this profile.
      */
-    private final Map<String, Counter> ngrams = new HashMap<String, Counter>();
+    private final Map<String, Counter> ngrams = new HashMap<>();
     /**
      * Sorted ngram cache for faster distance calculation.
      */
@@ -47,6 +52,8 @@ public class LanguageProfile {
      * Used to calculate relative ngram frequency.
      */
     private long count = 0;
+
+    private static final Logger LOG = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
     public LanguageProfile(int length) {
         this.length = length;
@@ -59,9 +66,12 @@ public class LanguageProfile {
     public LanguageProfile(String content, int length) {
         this(length);
 
-        ProfilingWriter writer = new ProfilingWriter(this);
-        char[] ch = content.toCharArray();
-        writer.write(ch, 0, ch.length);
+        try (ProfilingWriter writer = new ProfilingWriter(this)) {
+            char[] ch = content.toCharArray();
+            writer.write(ch, 0, ch.length);
+        } catch (IOException ioe) {
+            LOG.error("Unable to close stream", ioe);
+        }
     }
 
     public LanguageProfile(String content) {
@@ -100,7 +110,7 @@ public class LanguageProfile {
         if (length != ngram.length()) {
             throw new IllegalArgumentException(
                     "Unable to add an ngram of incorrect length: " + ngram.length() + " != " +
-                            length);
+                    length);
         }
 
         Counter counter = ngrams.get(ngram);
@@ -126,14 +136,14 @@ public class LanguageProfile {
     private double distanceStandard(LanguageProfile that) {
         if (length != that.length) {
             throw new IllegalArgumentException("Unable to calculage distance of language profiles" +
-                    " with different ngram lengths: " + that.length + " != " + length);
+                                               " with different ngram lengths: " + that.length + " != " + length);
         }
 
         double sumOfSquares = 0.0;
         double thisCount = Math.max(this.count, 1.0);
         double thatCount = Math.max(that.count, 1.0);
 
-        Set<String> ngrams = new HashSet<String>();
+        Set<String> ngrams = new HashSet<>();
         ngrams.addAll(this.ngrams.keySet());
         ngrams.addAll(that.ngrams.keySet());
         for (String ngram : ngrams) {
@@ -154,7 +164,7 @@ public class LanguageProfile {
     private double distanceInterleaved(LanguageProfile that) {
         if (length != that.length) {
             throw new IllegalArgumentException("Unable to calculage distance of language profiles" +
-                    " with different ngram lengths: " + that.length + " != " + length);
+                                               " with different ngram lengths: " + that.length + " != " + length);
         }
 
         double sumOfSquares = 0.0;
@@ -256,7 +266,7 @@ public class LanguageProfile {
 
         private List<Map.Entry<String, Counter>> getSortedNgrams() {
             List<Map.Entry<String, Counter>> entries =
-                    new ArrayList<Map.Entry<String, Counter>>(ngrams.size());
+                    new ArrayList<>(ngrams.size());
             entries.addAll(ngrams.entrySet());
             entries.sort(Map.Entry.comparingByKey());
             return entries;

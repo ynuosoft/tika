@@ -201,15 +201,12 @@ public class MockParser extends AbstractParser {
                 new ExecutorCompletionService<>(executorService);
 
         for (int i = 0; i < numThreads; i++) {
-            executorCompletionService.submit(new Runnable() {
-                @Override
-                public void run() {
-                    FakeLoad fakeload =
-                            new FakeLoadBuilder().lasting(millis, TimeUnit.MILLISECONDS)
-                                    .withCpu(cpu).withMemory(mb, MemoryUnit.MB).build();
-                    FakeLoadExecutor executor = FakeLoadExecutors.newDefaultExecutor();
-                    executor.execute(fakeload);
-                }
+            executorCompletionService.submit(() -> {
+                FakeLoad fakeload =
+                        new FakeLoadBuilder().lasting(millis, TimeUnit.MILLISECONDS)
+                                .withCpu(cpu).withMemory(mb, MemoryUnit.MB).build();
+                FakeLoadExecutor executor = FakeLoadExecutors.newDefaultExecutor();
+                executor.execute(fakeload);
             }, 1);
 
             int finished = 0;
@@ -221,9 +218,7 @@ public class MockParser extends AbstractParser {
                         finished++;
                     }
                 }
-            } catch (ExecutionException e) {
-                e.printStackTrace();
-            } catch (InterruptedException e) {
+            } catch (ExecutionException | InterruptedException e) {
                 e.printStackTrace();
             } finally {
                 executorService.shutdownNow();
@@ -393,10 +388,17 @@ public class MockParser extends AbstractParser {
         if (eNode != null) {
             elementType = eNode.getTextContent();
         }
+        int times = 1;
+        Node tNode = attrs.getNamedItem("times");
+        if (tNode != null) {
+            times = Integer.parseInt(tNode.getTextContent());
+        }
         String text = action.getTextContent();
-        xhtml.startElement(elementType);
-        xhtml.characters(text);
-        xhtml.endElement(elementType);
+        for (int i = 0; i < times; i++) {
+            xhtml.startElement(elementType);
+            xhtml.characters(text);
+            xhtml.endElement(elementType);
+        }
     }
 
 

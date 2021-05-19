@@ -44,7 +44,7 @@ public class LanguageIdentifier {
      * The available language profiles.
      */
     private static final Map<String, LanguageProfile> PROFILES =
-            new HashMap<String, LanguageProfile>();
+            new HashMap<>();
     private static final String PROFILE_SUFFIX = ".ngp";
     private static final String PROPERTIES_OVERRIDE_FILE = "tika.language.override.properties";
     private static final String PROPERTIES_FILE = "tika.language.properties";
@@ -230,10 +230,11 @@ public class LanguageIdentifier {
 
     /**
      * 1 - vector distance between the language model and the content
+     *
      * @return
      */
     public float getRawScore() {
-        return (float)(1-distance);
+        return (float) (1 - distance);
     }
 
     /**

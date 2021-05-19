@@ -16,39 +16,48 @@
  */
 package org.apache.tika.metadata.serialization;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonGenerator;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonToken;
-import org.apache.tika.metadata.Metadata;
-import org.apache.tika.pipes.emitter.EmitKey;
-import org.apache.tika.pipes.fetcher.FetchKey;
-import org.apache.tika.pipes.fetchiterator.FetchEmitTuple;
-import org.apache.tika.utils.StringUtils;
-
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringWriter;
 import java.io.Writer;
 import java.util.Locale;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+
+import org.apache.tika.metadata.Metadata;
+import org.apache.tika.pipes.FetchEmitTuple;
+import org.apache.tika.pipes.HandlerConfig;
+import org.apache.tika.pipes.emitter.EmitKey;
+import org.apache.tika.pipes.fetcher.FetchKey;
+import org.apache.tika.sax.BasicContentHandlerFactory;
+import org.apache.tika.utils.StringUtils;
+
 public class JsonFetchEmitTuple {
 
+    public static final String ID = "id";
     public static final String FETCHER = "fetcher";
     public static final String FETCHKEY = "fetchKey";
     public static final String EMITTER = "emitter";
     public static final String EMITKEY = "emitKey";
     public static final String METADATAKEY = "metadata";
+    public static final String HANDLER_CONFIG = "handlerConfig";
     public static final String ON_PARSE_EXCEPTION = "onParseException";
+    private static final String HANDLER_CONFIG_TYPE = "type";
+    private static final String HANDLER_CONFIG_WRITE_LIMIT = "writeLimit";
+    private static final String HANDLER_CONFIG_MAX_EMBEDDED_RESOURCES = "maxEmbeddedResources";
 
 
     public static FetchEmitTuple fromJson(Reader reader) throws IOException {
-        JsonParser jParser = new JsonFactory().createParser(reader);
-        JsonToken token = jParser.nextToken();
-        if (token != JsonToken.START_OBJECT) {
-            throw new IOException("require start object, but see: " + token.name());
+        try (JsonParser jParser = new JsonFactory().createParser(reader)) {
+            JsonToken token = jParser.nextToken();
+            if (token != JsonToken.START_OBJECT) {
+                throw new IOException("require start object, but see: " + token.name());
+            }
+            return parseFetchEmitTuple(jParser);
         }
-        return parseFetchEmitTuple(jParser);
     }
 
 
@@ -57,18 +66,23 @@ public class JsonFetchEmitTuple {
         if (token == JsonToken.START_OBJECT) {
             token = jParser.nextToken();
         }
+        String id = null;
         String fetcherName = null;
         String fetchKey = null;
         String emitterName = null;
         String emitKey = null;
-        FetchEmitTuple.ON_PARSE_EXCEPTION onParseException = null;
+        FetchEmitTuple.ON_PARSE_EXCEPTION onParseException =
+                FetchEmitTuple.DEFAULT_ON_PARSE_EXCEPTION;
+        HandlerConfig handlerConfig = HandlerConfig.DEFAULT_HANDLER_CONFIG;
         Metadata metadata = new Metadata();
         while (token != JsonToken.END_OBJECT) {
             if (token != JsonToken.FIELD_NAME) {
                 throw new IOException("required field name, but see: " + token.name());
             }
             String name = jParser.getCurrentName();
-            if (FETCHER.equals(name)) {
+            if (ID.equals(name)) {
+                id = getValue(jParser);
+            } else if (FETCHER.equals(name)) {
                 fetcherName = getValue(jParser);
             } else if (FETCHKEY.equals(name)) {
                 fetchKey = getValue(jParser);
@@ -89,24 +103,51 @@ public class JsonFetchEmitTuple {
                 } else if ("emit".equalsIgnoreCase(value)) {
                     onParseException = FetchEmitTuple.ON_PARSE_EXCEPTION.EMIT;
                 } else {
-                    throw new IOException(ON_PARSE_EXCEPTION +
-                            " must be either 'skip' or 'emit'");
+                    throw new IOException(ON_PARSE_EXCEPTION + " must be either 'skip' or 'emit'");
                 }
+            } else if (HANDLER_CONFIG.equals(name)) {
+                handlerConfig = getHandlerConfig(jParser);
             }
             token = jParser.nextToken();
         }
-
-        if (onParseException == null) {
-            return new FetchEmitTuple(
-                    new FetchKey(fetcherName, fetchKey),
-                    new EmitKey(emitterName, emitKey), metadata
-            );
-        } else {
-            return new FetchEmitTuple(
-                    new FetchKey(fetcherName, fetchKey),
-                    new EmitKey(emitterName, emitKey), metadata, onParseException
-            );
+        if (id == null) {
+            id = fetchKey;
         }
+        return new FetchEmitTuple(id, new FetchKey(fetcherName, fetchKey),
+                new EmitKey(emitterName, emitKey), metadata, handlerConfig, onParseException);
+    }
+
+    private static HandlerConfig getHandlerConfig(JsonParser jParser) throws IOException {
+
+        JsonToken token = jParser.nextToken();
+        if (token != JsonToken.START_OBJECT) {
+            throw new IOException("required start object, but see: " + token.name());
+        }
+        BasicContentHandlerFactory.HANDLER_TYPE handlerType =
+                BasicContentHandlerFactory.HANDLER_TYPE.TEXT;
+        int writeLimit = -1;
+        int maxEmbeddedResources = -1;
+        String fieldName = jParser.nextFieldName();
+        while (fieldName != null) {
+            switch (fieldName) {
+                case HANDLER_CONFIG_TYPE:
+                    String value = jParser.nextTextValue();
+                    handlerType = BasicContentHandlerFactory
+                            .parseHandlerType(value, HandlerConfig.DEFAULT_HANDLER_CONFIG.getType());
+                    break;
+                case HANDLER_CONFIG_WRITE_LIMIT:
+                    writeLimit = jParser.nextIntValue(-1);
+                    break;
+                case HANDLER_CONFIG_MAX_EMBEDDED_RESOURCES:
+                    maxEmbeddedResources = jParser.nextIntValue(-1);
+                    break;
+                default:
+                    throw new IllegalArgumentException("I regret I don't understand '" + fieldName +
+                                                       "' in the context of a handler config");
+            }
+            fieldName = jParser.nextFieldName();
+        }
+        return new HandlerConfig(handlerType, writeLimit, maxEmbeddedResources);
     }
 
     private static String getValue(JsonParser jParser) throws IOException {
@@ -132,6 +173,7 @@ public class JsonFetchEmitTuple {
 
     static void writeTuple(FetchEmitTuple t, JsonGenerator jsonGenerator) throws IOException {
         jsonGenerator.writeStartObject();
+        jsonGenerator.writeStringField(ID, t.getId());
         jsonGenerator.writeStringField(FETCHER, t.getFetchKey().getFetcherName());
         jsonGenerator.writeStringField(FETCHKEY, t.getFetchKey().getFetchKey());
         jsonGenerator.writeStringField(EMITTER, t.getEmitKey().getEmitterName());
@@ -141,6 +183,17 @@ public class JsonFetchEmitTuple {
         if (t.getMetadata().size() > 0) {
             jsonGenerator.writeFieldName(METADATAKEY);
             JsonMetadata.writeMetadataObject(t.getMetadata(), jsonGenerator, false);
+        }
+        if (t.getHandlerConfig() != HandlerConfig.DEFAULT_HANDLER_CONFIG) {
+            jsonGenerator.writeFieldName(HANDLER_CONFIG);
+            jsonGenerator.writeStartObject();
+            jsonGenerator.writeStringField(HANDLER_CONFIG_TYPE,
+                    t.getHandlerConfig().getType().name().toLowerCase(Locale.ROOT));
+            jsonGenerator.writeNumberField(HANDLER_CONFIG_WRITE_LIMIT,
+                    t.getHandlerConfig().getWriteLimit());
+            jsonGenerator.writeNumberField(HANDLER_CONFIG_MAX_EMBEDDED_RESOURCES,
+                    t.getHandlerConfig().getMaxEmbeddedResources());
+            jsonGenerator.writeEndObject();
         }
         jsonGenerator.writeStringField(ON_PARSE_EXCEPTION,
                 t.getOnParseException().name().toLowerCase(Locale.US));

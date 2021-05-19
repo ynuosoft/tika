@@ -35,6 +35,7 @@ import org.xml.sax.helpers.AttributesImpl;
 import org.xml.sax.helpers.DefaultHandler;
 
 import org.apache.tika.exception.TikaException;
+import org.apache.tika.exception.WriteLimitReachedException;
 import org.apache.tika.metadata.Metadata;
 import org.apache.tika.mime.MediaType;
 import org.apache.tika.parser.ParseContext;
@@ -269,7 +270,7 @@ public class BasicContentHandlerFactoryTest {
         try {
             p.parse(null, handler, null, null);
         } catch (SAXException e) {
-            if (!handler.isWriteLimitReached(e)) {
+            if (!WriteLimitReachedException.isWriteLimitReached(e)) {
                 throw e;
             }
             wlr = true;
@@ -283,8 +284,7 @@ public class BasicContentHandlerFactoryTest {
         try {
             p.parse(null, handler, null, null);
         } catch (SAXException e) {
-            if (!e.getClass().toString().contains(
-                    "org.apache.tika.sax.WriteOutContentHandler$WriteLimitReachedException")) {
+            if (! WriteLimitReachedException.isWriteLimitReached(e)) {
                 throw e;
             }
 
@@ -295,7 +295,7 @@ public class BasicContentHandlerFactoryTest {
 
     //Simple mockparser that writes a title
     //and charsToWrite number of 'a'
-    private class MockParser implements Parser {
+    private static class MockParser implements Parser {
         private final String XHTML = "http://www.w3.org/1999/xhtml";
         private final Attributes EMPTY_ATTRIBUTES = new AttributesImpl();
         private final char[] TITLE = "This is the title".toCharArray();

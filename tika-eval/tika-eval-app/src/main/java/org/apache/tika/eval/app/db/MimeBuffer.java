@@ -35,11 +35,12 @@ public class MimeBuffer extends AbstractDBBuffer {
     private final Connection connection;
 
 
-    public MimeBuffer(Connection connection, TableInfo mimeTable, TikaConfig config) throws SQLException {
-        st = connection.prepareStatement("insert into " + mimeTable.getName() + "( " +
-                Cols.MIME_ID.name() + ", " +
-                Cols.MIME_STRING.name() + ", " +
-                Cols.FILE_EXTENSION.name() + ") values (?,?,?)");
+    public MimeBuffer(Connection connection, TableInfo mimeTable, TikaConfig config)
+            throws SQLException {
+        st = connection.prepareStatement(
+                "insert into " + mimeTable.getName() + "( " + Cols.MIME_ID.name() + ", " +
+                        Cols.MIME_STRING.name() + ", " + Cols.FILE_EXTENSION.name() +
+                        ") values (?,?,?)");
         this.config = config;
         this.connection = connection;
     }
@@ -124,14 +125,15 @@ public class MimeBuffer extends AbstractDBBuffer {
             String type = mediaType.getType();
             String subtype = mediaType.getSubtype();
             if (type.equals(TEXT)) {
-                if (subtype.equals(HTML)) {
-                    return HTML;
-                } else if (subtype.equals(PLAIN)) {
-                    return "txt";
-                } else if (subtype.equals(CSS)) {
-                    return CSS;
-                } else if (subtype.equals(CSV)) {
-                    return CSV;
+                switch (subtype) {
+                    case HTML:
+                        return HTML;
+                    case PLAIN:
+                        return "txt";
+                    case CSS:
+                        return CSS;
+                    case CSV:
+                        return CSV;
                 }
             } else if (type.equals(APPLICATION)) {
                 if (subtype.equals(XML)) {

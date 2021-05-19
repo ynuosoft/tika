@@ -153,16 +153,15 @@ public class EnviHeaderParser extends AbstractEncodingDetectorParser {
                 mapInfoValueStringBuilder.append(mapInfoValue.charAt(i));
             }
         }
-        String[] mapInfoValues = mapInfoValueStringBuilder.toString().split(",");
-        return mapInfoValues;
+        return mapInfoValueStringBuilder.toString().split(",");
     }
 
     // Conversion logic taken from https://stackoverflow.com/questions/343865/how-to-convert-from-utm-to-latlng-in-python-or-javascript/344083#344083
     private String[] convertMapInfoValuesToLatLngAndSetMetadata(String[] mapInfoValues,
                                                                 Metadata metadata) {
         // Based on the map info data, pixelEasting is at index 3 and pixelNorthing is at index 4
-        double pixelEasting = Double.valueOf(mapInfoValues[3].trim());
-        double pixelNorthing = Double.valueOf(mapInfoValues[4].trim());
+        double pixelEasting = Double.parseDouble(mapInfoValues[3].trim());
+        double pixelNorthing = Double.parseDouble(mapInfoValues[4].trim());
         int zone = 0;
         if (!mapInfoValues[7].trim().isEmpty()) {
             zone = Integer.parseInt(mapInfoValues[7].trim());
